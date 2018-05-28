@@ -12,12 +12,12 @@
                 changeYear: true
             });
 
-//            $("#contactDescription").ckeditor(
-//                {
-//                    toolbar : 'Basic',
-//                    uiColor : '#CCCCCC'
-//                }
-//            );
+            $("#contactDescription").ckeditor(
+                {
+                    toolbar : 'Basic',
+                    uiColor : '#CCCCCC'
+                }
+            );
         });
     </script>
 

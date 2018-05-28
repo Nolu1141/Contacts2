@@ -1,21 +1,26 @@
 package com.contactspring;
 
 
+import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.*;
 
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.servlet.ServletRegistration;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.servlet.view.InternalResourceViewResolver;
 
 import java.util.List;
 import java.util.Locale;
@@ -69,14 +74,14 @@ public class ContactController {
     }
 
     @RequestMapping(value = "/{id}", params = "form", method = RequestMethod.GET)
-    public String updateForm(@PathVariable("id") Long id, Model model){
+    public String updateForm(@PathVariable("id") Long id, Model model) {
         model.addAttribute("contact", contactService.findById(id));
         return "contacts/update";
     }
 
     @RequestMapping(params = "form", method = RequestMethod.POST)
     public String create(@Valid Contact contact, BindingResult bindingResult, Model model, HttpServletRequest httpServletRequest,
-                         RedirectAttributes redirectAttributes, Locale locale){
+                         RedirectAttributes redirectAttributes, Locale locale) {
         logger.info("Creating contact");
         if (bindingResult.hasErrors()) {
             model.addAttribute("message", new Message("error",
@@ -94,17 +99,54 @@ public class ContactController {
     }
 
     @RequestMapping(params = "form", method = RequestMethod.GET)
-    public String createForm(Model model){
+    public String createForm(Model model) {
         Contact contact = new Contact();
         model.addAttribute(contact);
         return "contacts/create";
     }
 
+    @RequestMapping(value = "/listgrid", method = RequestMethod.GET, produces = "application/json")
+    @ResponseBody
+    public ContactGrid listGrid(@RequestParam(value = "page", required = false) Integer page,
+                                @RequestParam(value = "rows", required = false) Integer rows,
+                                @RequestParam(value = "sidx", required = false) String sortBy,
+                                @RequestParam(value = "sord", required = false) String order) {
+        logger.info("Listing contacts for grid with page: {}, rows:{}", page, rows);
+        logger.info("Listing contacts for grid with sort: {}, order:{}", sortBy, order);
+        //Обработать поле по которому производится сортировка
+        Sort sort = null;
+        String orderBy = sortBy;
+        if (orderBy != null && orderBy.equals("birthDateString")) {
+            orderBy="birthDate";
+        }
+        if (orderBy !=null && order!=null){
+            if (order.equals("desc")){
+                sort = new Sort(Sort.Direction.DESC , orderBy);
+            }else sort = new Sort(Sort.Direction.ASC, orderBy);
+        }
+        // Сконструировать страничный запрос для текущей страницы
+        // Примечание: нумерация страниц для СпрингДатаJPA начинается с 0, а в jqGrid c 1
+        PageRequest pageRequest = null;
+        if (sort!=null){
+            pageRequest = new PageRequest(page - 1, rows, sort);
+        } else {
+            pageRequest = new PageRequest(page -1, rows);
+        }
+        Page<Contact> contactPage = contactService.findAllbyPage(pageRequest);
+        //сконструировать сетку, которая вернет данные в формате JSON
+        ContactGrid contactGrid = new ContactGrid();
+        contactGrid.setCurrentPage(contactPage.getNumber()+1);
+        contactGrid.setTotalPages(contactPage.getTotalPages());
+        contactGrid.setTotalRecords(contactPage.getTotalElements());
+        contactGrid.setContactData(Lists.newArrayList(contactPage.iterator()));
+        return contactGrid;
+    }
 
     @Autowired
     public void setContactService(ContactService contactService) {
         this.contactService = contactService;
     }
+
     @Autowired
     public void setMessageSource(MessageSource messageSource) {
         this.messageSource = messageSource;
