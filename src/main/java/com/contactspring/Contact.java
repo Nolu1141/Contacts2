@@ -2,10 +2,12 @@ package com.contactspring;
 
 
 import org.hibernate.annotations.Type;
+import org.hibernate.validator.constraints.NotEmpty;
 import org.joda.time.DateTime;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import javax.persistence.*;
+import javax.validation.constraints.Size;
 import java.io.Serializable;
 
 @Entity
@@ -41,6 +43,8 @@ public class Contact implements Serializable {
         this.version = version;
     }
 
+    @NotEmpty(message = "{validation.firstname.NotEmpty.message}")
+    @Size(min=3, max = 60, message = "{validation.firstname.Size.message}")
     @Column(name = "FIRST_NAME")
     public String getFirstName() {
         return firstName;
@@ -50,6 +54,8 @@ public class Contact implements Serializable {
         this.firstName = firstName;
     }
 
+    @NotEmpty(message = "{validation.lastname.NotEmpty.message}")
+    @Size(min=1, max = 40, message = "{validation.lastname.Size.message}")
     @Column(name = "LAST_NAME")
     public String getLastName() {
         return lastName;
