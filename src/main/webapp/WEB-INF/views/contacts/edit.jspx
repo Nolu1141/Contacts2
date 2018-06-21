@@ -5,6 +5,7 @@
      xmlns:spring="http://www.springframework.org/tags"
      xmlns:form="http://www.springframework.org/tags/form"
      version="2.0">
+
     <script type="text/javascript">
         $(function(){
             $('#birthDate').datepicker({
@@ -38,7 +39,8 @@
     <h1>${formTitle}</h1>
 
     <div id="contactUpdate">
-        <form:form modelAttribute="contact" id="contactUpdateForm" method="post">
+        <form:form modelAttribute="contact" id="contactUpdateForm" method="post"
+                   enctype="multipart/form-data">
 
             <c:if test="${not empty message}">
                 <div id="message" class="${message.type}">${message.message}</div>
@@ -80,12 +82,20 @@
             </div>
             <p/>
 
+            <label for="file">
+                ${labelContactPhoto}
+            </label>
+            <input name="file" type="file"/>
+            <p/>
+
             <form:hidden path="version" />
 
             <button type="submit" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only">
-                <span class="ui-button-text">Save</span></button>
-            <button type="reset" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only"><span class="ui-button-text">Reset</span></button>
-
+                <span class="ui-button-text">Save</span>
+            </button>
+            <button type="reset" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only">
+                <span class="ui-button-text">Reset</span>
+            </button>
         </form:form>
     </div>
 </div>

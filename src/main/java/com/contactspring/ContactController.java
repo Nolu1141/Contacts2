@@ -2,6 +2,7 @@ package com.contactspring;
 
 
 import com.google.common.collect.Lists;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,7 @@ import org.springframework.context.MessageSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -17,13 +19,17 @@ import org.springframework.web.bind.annotation.*;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.servlet.ServletRegistration;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.Part;
 import javax.validation.Valid;
 
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.Callable;
 
 @RequestMapping("/contacts")
 @Controller
@@ -54,7 +60,7 @@ public class ContactController {
     @RequestMapping(value = "/{id}", params = "form", method = RequestMethod.POST)
     public String update(@Valid Contact contact, BindingResult bindingResult, Model model,
                          HttpServletRequest httpServletRequest, RedirectAttributes redirectAttributes,
-                         Locale locale) {
+                         Locale locale, @RequestParam(value="file", required=false) Part file) {
 
         logger.info("Updating contact");
         if (bindingResult.hasErrors()) {
@@ -68,6 +74,24 @@ public class ContactController {
         redirectAttributes.addFlashAttribute("message", new Message("success",
                 messageSource.getMessage("contact_save_success", new Object[]{}, locale)));
 
+        // Process upload file
+        if (file != null) {
+            logger.info("File name: " + file.getName());
+            logger.info("File size: " + file.getSize());
+            logger.info("File content type: " + file.getContentType());
+            byte[] fileContent = null;
+            try {
+                InputStream inputStream = file.getInputStream();
+                if (inputStream == null) logger.info("File inputstream is null");
+                fileContent = IOUtils.toByteArray(inputStream);
+                contact.setPhoto(fileContent);
+            } catch (IOException ex) {
+                logger.error("Error saving uploaded file");
+            }
+            contact.setPhoto(fileContent);
+        }
+
+
         contactService.save(contact);
         return "redirect:/contacts/" + UrlUtil.encodeUrlPathSegment(contact.getId().toString(),
                 httpServletRequest);
@@ -79,30 +103,62 @@ public class ContactController {
         return "contacts/update";
     }
 
-    @RequestMapping(params = "form", method = RequestMethod.POST)
-    public String create(@Valid Contact contact, BindingResult bindingResult, Model model, HttpServletRequest httpServletRequest,
-                         RedirectAttributes redirectAttributes, Locale locale) {
+    @RequestMapping(method = RequestMethod.POST)
+    public String create(@Valid Contact contact, BindingResult bindingResult, Model uiModel,
+                         HttpServletRequest httpServletRequest, RedirectAttributes redirectAttributes,
+                         Locale locale, @RequestParam(value="file", required=false) Part file) {
         logger.info("Creating contact");
         if (bindingResult.hasErrors()) {
-            model.addAttribute("message", new Message("error",
+            uiModel.addAttribute("message", new Message("error",
                     messageSource.getMessage("contact_save_fail", new Object[]{}, locale)));
-            model.addAttribute("contact", contact);
+            uiModel.addAttribute("contact", contact);
             return "contacts/create";
         }
-        model.asMap().clear();
+        uiModel.asMap().clear();
         redirectAttributes.addFlashAttribute("message", new Message("success",
                 messageSource.getMessage("contact_save_success", new Object[]{}, locale)));
 
         logger.info("Contact id: " + contact.getId());
+
+        // Process upload file
+        if (file != null) {
+            logger.info("File name: " + file.getName());
+            logger.info("File size: " + file.getSize());
+            logger.info("File content type: " + file.getContentType());
+            byte[] fileContent = null;
+            try {
+                InputStream inputStream = file.getInputStream();
+                if (inputStream == null) logger.info("File inputstream is null");
+                fileContent = IOUtils.toByteArray(inputStream);
+                contact.setPhoto(fileContent);
+            } catch (IOException ex) {
+                logger.error("Error saving uploaded file");
+            }
+            contact.setPhoto(fileContent);
+        }
+
         contactService.save(contact);
         return "redirect:/contacts/";
     }
-
+    @PreAuthorize("isAuthenticated()")
     @RequestMapping(params = "form", method = RequestMethod.GET)
     public String createForm(Model model) {
         Contact contact = new Contact();
         model.addAttribute(contact);
         return "contacts/create";
+    }
+
+    @RequestMapping(value = "/photo/{id}", method = RequestMethod.GET)
+    @ResponseBody
+    public byte[] downloadPhoto(@PathVariable("id") Long id) {
+        Contact contact = contactService.findById(id);
+
+        if (contact.getPhoto() != null) {
+            logger.info("Downloading photo for id: {} with size: {}", contact.getId(),
+                    contact.getPhoto().length);
+        }
+
+        return contact.getPhoto();
     }
 
     @RequestMapping(value = "/listgrid", method = RequestMethod.GET, produces = "application/json")
@@ -141,6 +197,7 @@ public class ContactController {
         contactGrid.setContactData(Lists.newArrayList(contactPage.iterator()));
         return contactGrid;
     }
+
 
     @Autowired
     public void setContactService(ContactService contactService) {
